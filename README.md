@@ -20,7 +20,6 @@ A tower defense game with a day/night cycle where you gather resources during th
 - **Language**: C/C++
 - **Graphics**: raylib (cross-platform 2D)
 - **Platforms**: Windows (MinGW) + Linux
-- **Art Style**: Geometric shapes (circles, squares, triangles)
 
 ## Setup Instructions
 
