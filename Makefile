@@ -3,69 +3,76 @@
 
 # Detect OS
 ifeq ($(OS),Windows_NT)
-    PLATFORM := WINDOWS
-    RM := del /Q
-    MKDIR := mkdir
-    EXE := .exe
-    RAYLIB_PATH := raylib
+    PLATFORM = WINDOWS
+    EXE = .exe
+    RAYLIB_PATH = raylib
+    SHELL = cmd
 else
-    PLATFORM := LINUX
-    RM := rm -f
-    MKDIR := mkdir -p
-    EXE :=
-    RAYLIB_PATH := /usr/local
+    PLATFORM = LINUX
+    EXE =
+    RAYLIB_PATH = /usr/local
 endif
 
 # Compiler and flags
-CXX := g++
-CXXFLAGS := -Wall -Wextra -std=c++17
-INCLUDES := -Iinclude -I$(RAYLIB_PATH)/include
-LDFLAGS := -L$(RAYLIB_PATH)/lib
+CXX = g++
+CXXFLAGS = -Wall -Wextra -std=c++17
+INCLUDES = -Iinclude -I$(RAYLIB_PATH)/include
+LDFLAGS = -L$(RAYLIB_PATH)/lib
 
 # Libraries
 ifeq ($(PLATFORM),WINDOWS)
-    LIBS := -lraylib -lopengl32 -lgdi32 -lwinmm
+    LIBS = -lraylib -lopengl32 -lgdi32 -lwinmm
 else
-    LIBS := -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+    LIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 endif
 
 # Directories
-SRC_DIR := src
-BUILD_DIR := build
-BIN_DIR := bin
+SRC_DIR = src
+BUILD_DIR = build
+BIN_DIR = bin
 
 # Target executable
-TARGET := $(BIN_DIR)/tower_defense$(EXE)
+TARGET = $(BIN_DIR)/tower_defense$(EXE)
 
 # Source files
-SOURCES := $(wildcard $(SRC_DIR)/*.cpp)
-OBJECTS := $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
+OBJECTS = $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
 
 # Default target
-all: directories $(TARGET)
-
-# Create necessary directories
-directories:
-	@if not exist $(BUILD_DIR) $(MKDIR) $(BUILD_DIR) 2>nul || $(MKDIR) $(BUILD_DIR)
-	@if not exist $(BIN_DIR) $(MKDIR) $(BIN_DIR) 2>nul || $(MKDIR) $(BIN_DIR)
+all: $(TARGET)
 
 # Link object files to create executable
-$(TARGET): $(OBJECTS)
+$(TARGET): $(OBJECTS) | $(BIN_DIR)
 	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS) $(LIBS)
 	@echo Build complete: $(TARGET)
 
 # Compile source files to object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Create directories
+$(BUILD_DIR):
+	@mkdir $(BUILD_DIR)
+
+$(BIN_DIR):
+	@mkdir $(BIN_DIR)
 
 # Run the game
 run: all
+ifeq ($(PLATFORM),WINDOWS)
+	$(TARGET)
+else
 	./$(TARGET)
+endif
 
 # Clean build files
 clean:
-	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR) 2>nul || rm -rf $(BUILD_DIR)
-	@if exist $(BIN_DIR) rmdir /S /Q $(BIN_DIR) 2>nul || rm -rf $(BIN_DIR)
+ifeq ($(PLATFORM),WINDOWS)
+	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
+	@if exist $(BIN_DIR) rmdir /S /Q $(BIN_DIR)
+else
+	rm -rf $(BUILD_DIR) $(BIN_DIR)
+endif
 	@echo Cleaned build files
 
 # Debug build
@@ -76,4 +83,4 @@ debug: all
 release: CXXFLAGS += -O3 -DNDEBUG
 release: all
 
-.PHONY: all clean run debug release directories
+.PHONY: all clean run debug release
