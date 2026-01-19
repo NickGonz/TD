@@ -32,3 +32,6 @@ desktop.ini
 # Debug files
 *.pdb
 *.ilk
+
+# Claude Code
+.claude/

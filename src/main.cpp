@@ -2,49 +2,102 @@
 #include "game.h"
 #include "player.h"
 #include "world.h"
+#include "ui.h"
+#include "heart.h"
 
 int main() {
-    // Window setup
-    InitWindow(800, 600, "Tower Defense");
+
+    InitWindow(1240, 720, "Tower Defense");
     SetTargetFPS(60);
 
-    // Initialize game state
     GameState game;
     InitGame(&game);
 
-    // Initialize world
     World world;
     InitWorld(&world);
+    LoadWorldAssets(&world);
+    SpawnResources(&world, 200);  // Spawn trees and rocks
 
-    // Initialize player
     Player player;
     InitPlayer(&player);
 
-    // Main game loop
-    while (!WindowShouldClose()) {
-        // UPDATE: Game logic
-        UpdateGame(&game, GetFrameTime());
-        UpdatePlayer(&player, GetFrameTime());
+    Hotbar hotbar;
+    InitHotbar(&hotbar);
 
-        // DRAW: Rendering
+    // Place heart in center of the map
+    Heart heart;
+    InitHeart(&heart, WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
+
+    // Set up camera
+    Camera2D camera = { 0 };
+    camera.offset = (Vector2){ GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
+    camera.rotation = 0.0f;
+    camera.zoom = 1.55f;  // Start zoomed out a bit to see more of the world
+
+    while (!WindowShouldClose()) {
+
+        float dt = GetFrameTime();
+        UpdateGame(&game, dt);
+        UpdatePlayer(&player, &world, &camera, dt);
+        UpdateResources(&world, dt);
+        UpdateHotbar(&hotbar);
+        UpdatePlacement(&world, &hotbar, &camera, &player);
+
+        // Left-click to gather resources (only when nothing selected in hotbar)
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && hotbar.selectedSlot < 0) {
+            PlayerSwing(&player);
+            // Use tool tip position for gathering
+            Vector2 toolTip = GetToolTipPosition(&player);
+            float gatherReach = 40.0f;  // Radius around tool tip
+            int gathered = GatherResource(&world, toolTip, gatherReach);
+            if (gathered == 1) {
+                player.wood++;
+            } else if (gathered == 2) {
+                player.stone++;
+            }
+        }
+
+        // Camera zoom with scroll wheel
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0) {
+            camera.zoom += wheel * 0.1f;
+            if (camera.zoom < 0.25f) camera.zoom = 0.25f;  // Min zoom (zoomed out)
+            if (camera.zoom > 2.0f) camera.zoom = 2.0f;    // Max zoom (zoomed in)
+        }
+
+        // Update camera to follow player
+        camera.target = player.position;
+
         BeginDrawing();
 
-        // Change background color based on phase
         Color bgColor = (game.currentPhase == PHASE_DAY) ? RAYWHITE : DARKGRAY;
         ClearBackground(bgColor);
 
-        // Draw the world (grid and walls)
+        // Begin camera mode - world space drawing
+        BeginMode2D(camera);
+
         DrawWorld(&world);
-
-        // Draw the player
+        DrawResources(&world);
+        DrawTowers(&world);
+        DrawHeart(&heart);
         DrawPlayer(&player);
+        DrawPlacementCursor(&world, &hotbar, &camera, &player);
 
-        // Draw the game UI (on top)
+        EndMode2D();
+        // End camera mode - UI drawing (screen space)
+
+        DrawHotbar(&hotbar);
         DrawGameUI(&game);
+
+        // Draw resource counts (above hotbar)
+        int hotbarY = GetScreenHeight() - 50 - 10;  // Match hotbar position
+        DrawText(TextFormat("Wood: %d  Stone: %d", player.wood, player.stone),
+                 GetScreenWidth() / 2 - 80, hotbarY - 30, 20, WHITE);
 
         EndDrawing();
     }
 
+    UnloadWorldAssets(&world);
     CloseWindow();
     return 0;
 }
